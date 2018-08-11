@@ -10,22 +10,27 @@ class EFEntity {
     def addAttribute(String name, value) {
         if (name == 'description') {
             description = value
+        } else {
+            this.attributes[name] = value
         }
-        this.attributes[name] = value
     }
 
     def addProperty(Property property) {
-        if (this.properties.find {it.name == property.name}) {
+        if (this.properties.find { it.name == property.name }) {
             println "Property already found in list"
-        }
-        else {
+        } else {
             this.properties.add(property)
         }
+    }
+
+    def listProperties() {
+        return this.properties
     }
 
     def addChild(Property property) {
         addProperty(property)
     }
+
     def addChild(EFEntity child) {
         throw new RuntimeException("Cannot add ${child.class} to ${this.class}")
     }

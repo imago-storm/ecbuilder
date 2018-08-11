@@ -12,6 +12,8 @@ class DSLEvaluator {
     static final String END = 'end'
     static final String ATTRIBUTE = 'attribute'
 
+    File procedureFolder
+
     String pluginFolder
     String pluginKey
     @Lazy
@@ -36,12 +38,10 @@ class DSLEvaluator {
     def sendEvent(String eventType, String eventName, properties = null) {
         listeners.each {
             if (eventType == 'start') {
-                it.startEvent(eventName)
-            }
-            else if (eventType == 'end') {
-                it.endEvent(eventName)
-            }
-            else {
+                it.startEvent(eventName, properties)
+            } else if (eventType == 'end') {
+                it.endEvent(eventName, properties)
+            } else {
                 it.attribute(eventName, properties)
             }
         }
@@ -52,8 +52,8 @@ class DSLEvaluator {
             return get(methodName, args)
         }
 
-        sendEvent(START, methodName)
         String entityName = getEntityName(methodName, args)
+        sendEvent(START, methodName, entityName)
         String nameAttribute = methodName + 'Name'
         sendEvent(ATTRIBUTE, nameAttribute, entityName)
 
@@ -70,33 +70,62 @@ class DSLEvaluator {
                     params[k] = v
                 }
             }
-
         }
+
+        if (methodName == 'procedure') {
+            loadProcedureForm(this.procedureFolder)
+        }
+
 //        TODO deal with partial declaration
         params.each { String k, v ->
             if (k in objectProperties(methodName)) {
                 sendEvent(ATTRIBUTE, k, v)
             } else {
-                sendEvent(START, 'property')
+                sendEvent(START, 'property', k)
                 sendEvent(ATTRIBUTE, 'propertyName', k)
                 sendEvent(ATTRIBUTE, 'value', v)
-                sendEvent(END, 'property')
+                sendEvent(END, 'property', k)
             }
         }
-        sendEvent(END, methodName)
+        sendEvent(END, methodName, entityName)
+    }
+
+
+    def loadProcedureForm(File folder) {
+//        Somewhere between start and end procedure events
+        File formXml = new File(folder, "form.xml")
+        def formElements = new XmlSlurper().parse(formXml)
+
+        formElements.formElement.each { formElement ->
+            formalParameter("${formElement.property}",
+                defaultValue: "${formElement.value}",
+                required: "${formElement.required}",
+                type: "${formElement.type}",
+                label: "${formElement.label}")
+
+//            Attach
+//            Custom editor data
+        }
+//        property 'ec_parameterForm', value: formXml.text
+        sendEvent(START, 'property', 'ec_parameterForm')
+        sendEvent(ATTRIBUTE, 'propertyName', 'ec_parameterForm')
+        sendEvent(ATTRIBUTE, 'value', formXml.text)
+        sendEvent(END, 'property', 'ec_parameterForm')
     }
 
 //    TODO
     List objectProperties(String name) {
-        Map properties = [procedure: ['description', 'jobNameTemplate', 'projectName',
-                                      'resourceName', 'timeLimit', 'timeLimitUnits', 'workspaceName'],
-                          step     : ['description', 'alwaysRun', 'broadcast',
-                                      'command', 'condition', 'errorHandling', 'exclusiveMode',
-                                      'logFileName', 'parallel', 'postProcessor', 'precondition',
-                                      'projectName', 'releaseMode', 'resourceName', 'shell',
-                                      'subprocedure', 'subproject', 'timeLimit', 'timeLimitUnits',
-                                      'workingDirectory', 'workspaceName'],
-                          property : ['value', 'expandable']]
+        Map properties = [procedure      : ['description', 'jobNameTemplate', 'projectName',
+                                            'resourceName', 'timeLimit', 'timeLimitUnits', 'workspaceName'],
+                          step           : ['description', 'alwaysRun', 'broadcast',
+                                            'command', 'condition', 'errorHandling', 'exclusiveMode',
+                                            'logFileName', 'parallel', 'postProcessor', 'precondition',
+                                            'projectName', 'releaseMode', 'resourceName', 'shell',
+                                            'subprocedure', 'subproject', 'timeLimit', 'timeLimitUnits',
+                                            'workingDirectory', 'workspaceName'],
+                          property       : ['value', 'expandable'],
+                          project        : ['description', 'name'],
+                          formalParameter: ['property', 'defaultValue', 'type', 'label', 'required']]
         return properties[name]
     }
 
@@ -116,7 +145,7 @@ class DSLEvaluator {
     }
 
     def getEntityName(String methodName, args) {
-        if (args?.getAt(0) instanceof String) {
+        if (args?.getAt(0) instanceof String || args?.getAt(0) instanceof GString) {
             return args?.getAt(0)
         } else if (args?.getAt(0) instanceof Map) {
             if (args.size() > 1) {
@@ -167,10 +196,7 @@ class DSLEvaluator {
 
     def loadProcedure(File procedureFolder) {
         File procedureDsl = new File(procedureFolder, 'procedure.dsl')
-        File formXml = new File(procedureFolder, 'form.xml')
-//        TODO formal parameters
-//        TODO form properties
-
+        this.procedureFolder = procedureFolder
         CompilerConfiguration cc = new CompilerConfiguration()
         cc.setScriptBaseClass(DelegatingScript.class.getName())
         Map bindings = [

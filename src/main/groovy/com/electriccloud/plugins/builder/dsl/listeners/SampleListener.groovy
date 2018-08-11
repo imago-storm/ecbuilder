@@ -3,7 +3,7 @@ package com.electriccloud.plugins.builder.dsl.listeners
 class SampleListener implements EventListener {
     int indent = 0
 
-    def startEvent(String name) {
+    def startEvent(String name, objectName) {
         indent++
         println "${' '.multiply(indent)}Event started: $name"
     }
@@ -12,7 +12,7 @@ class SampleListener implements EventListener {
         println "${' '.multiply(indent + 1)}Attribute $name, $value"
     }
 
-    def endEvent(String name) {
+    def endEvent(String name, objectName) {
         println "${' '.multiply(indent)}End event $name"
         indent--
     }

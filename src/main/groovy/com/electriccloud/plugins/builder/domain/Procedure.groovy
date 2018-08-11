@@ -11,8 +11,9 @@ class Procedure extends EFEntity {
     def addAttribute(String name, value) {
         if (name == 'procedureName') {
             this.name = value
+        } else {
+            super.addAttribute(name, value)
         }
-        super.addAttribute(name, value)
     }
 
     def addChild(Step step) {
