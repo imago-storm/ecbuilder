@@ -2,6 +2,7 @@ package com.electriccloud.plugins.builder.domain
 
 class Step extends EFEntity {
     List<ActualParameter> actualParameters = []
+    List<String> attachedParameters = []
 
     Step(Procedure procedure) {
         this.parent = procedure
@@ -16,5 +17,9 @@ class Step extends EFEntity {
             this.name = value
         }
         super.addAttribute(name, value)
+    }
+
+    def attachParameter(String formalParameterName) {
+        attachedParameters << formalParameterName
     }
 }

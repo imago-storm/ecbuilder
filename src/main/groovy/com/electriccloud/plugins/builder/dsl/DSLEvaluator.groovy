@@ -11,6 +11,7 @@ class DSLEvaluator {
     static final String START = 'start'
     static final String END = 'end'
     static final String ATTRIBUTE = 'attribute'
+    static final String METHOD = 'method'
 
     File procedureFolder
 
@@ -41,6 +42,8 @@ class DSLEvaluator {
                 it.startEvent(eventName, properties)
             } else if (eventType == 'end') {
                 it.endEvent(eventName, properties)
+            } else if (eventType == METHOD) {
+                it.method(eventName, properties)
             } else {
                 it.attribute(eventName, properties)
             }
@@ -50,6 +53,11 @@ class DSLEvaluator {
     def methodMissing(String methodName, args) {
         if (methodName.startsWith("get")) {
             return get(methodName, args)
+        }
+//        Actions which do not declare entities
+        if (methodName in ['aclEntry', 'attachParameter']) {
+            sendEvent(METHOD, methodName, args)
+            return
         }
 
         String entityName = getEntityName(methodName, args)
@@ -73,7 +81,7 @@ class DSLEvaluator {
         }
 
         if (methodName == 'procedure') {
-            loadProcedureForm(this.procedureFolder)
+            loadProcedureForm(this.procedureFolder, entityName)
         }
 
 //        TODO deal with partial declaration
@@ -87,11 +95,16 @@ class DSLEvaluator {
                 sendEvent(END, 'property', k)
             }
         }
+        if (methodName == 'project') {
+            property 'ec_setup', {
+                value = 'print "hello"'
+            }
+        }
         sendEvent(END, methodName, entityName)
     }
 
 
-    def loadProcedureForm(File folder) {
+    def loadProcedureForm(File folder, String procedureName) {
 //        Somewhere between start and end procedure events
         File formXml = new File(folder, "form.xml")
         def formElements = new XmlSlurper().parse(formXml)
@@ -103,14 +116,45 @@ class DSLEvaluator {
                 type: "${formElement.type}",
                 label: "${formElement.label}")
 
-//            Attach
-//            Custom editor data
+            if (formElement['attachedAsParameterToStep'] && formElement['attachedAsParameterToStep'] != '') {
+                formElement['attachedAsParameterToStep'].toString().split(/\s*,\s*/).each {
+                    attachParameter projectName: pluginName,
+                        procedureName: procedureName,
+                        stepName: it,
+                        formalParameterName: "${formElement.property}"
+                }
+            }
+
         }
-//        property 'ec_parameterForm', value: formXml.text
-        sendEvent(START, 'property', 'ec_parameterForm')
-        sendEvent(ATTRIBUTE, 'propertyName', 'ec_parameterForm')
-        sendEvent(ATTRIBUTE, 'value', formXml.text)
-        sendEvent(END, 'property', 'ec_parameterForm')
+        property 'ec_parameterForm', value: formXml.text
+        property 'ec_customEditorData', {
+            property 'parameters', {
+                formElements.formElement.each { formElement ->
+                    property "${formElement.property}", {
+                        formType = 'standard'
+                        if ('checkbox' == formElement.type.toString()) {
+                            checkedValue = formElement.checkedValue ?: 'true'
+                            uncheckedValue = formElement.uncheckedValue ?: 'false'
+                            initiallyChecked = formElement.initiallyChecked ?: '0'
+                        }
+                        else if ('select' == formElement.type.toString() || 'radio' == formElement.type.toString()) {
+                            int count = 0
+                            property 'options', {
+                                formElement.option.each { option ->
+                                    count ++
+                                    property "option${count}", {
+                                        property 'text', value: "${option.name}"
+                                        property 'value', value: "${option.value}"
+                                    }
+                                }
+                                type = 'list'
+                                optionCount = count
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
 //    TODO
@@ -181,7 +225,24 @@ class DSLEvaluator {
     }
 
     def loadPluginProperties(pluginDir, pluginName) {
-        println "Load plugin properties"
+        loadNestedProperties(new File(pluginDir, 'dsl/properties'))
+    }
+
+    def loadNestedProperties(File propsDir) {
+        propsDir.eachFile { dir ->
+            int extension = dir.name.lastIndexOf('.')
+            int endIndex = extension > -1 ? extension : dir.name.length()
+            String propName = dir.name.substring(0, endIndex)
+
+            if (dir.directory) {
+                property propName, {
+                    loadNestedProperties(dir)
+                }
+            }
+            else {
+                property propName, value: dir.text
+            }
+        }
     }
 
     def loadProcedures(pluginDir, pluginKey, pluginName, pluginCategory) {

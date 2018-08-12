@@ -19,6 +19,10 @@ class ProjectXMLBuilder implements EventListener {
     )
     Node context = parent
 
+    def method(String methodName, properties) {
+
+    }
+
     def startEvent(String name, entityName) {
         if (ignoreThis) {
             return

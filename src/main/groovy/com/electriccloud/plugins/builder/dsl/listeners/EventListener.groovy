@@ -7,5 +7,7 @@ interface EventListener {
 
     def endEvent(String name, entityName)
 
+    def method(String name, properties)
+
     def done()
 }

@@ -1,7 +1,9 @@
 package com.electriccloud.plugins.builder.dsl.listeners
 
 import com.electriccloud.plugins.builder.domain.*
+import groovy.util.logging.Slf4j
 
+@Slf4j
 class ProjectBuilder implements EventListener {
 
     Project project = new Project()
@@ -12,12 +14,18 @@ class ProjectBuilder implements EventListener {
         this.callback = callback
     }
 
+    List attachedCredentials = []
+
+    def method(String methodName, properties) {
+        if (methodName == 'attachParameter') {
+            log.debug "Found attach parameter: ${properties}"
+            attachedCredentials << properties[0]
+        }
+        log.debug "Found method $methodName"
+    }
+
     @Override
     def startEvent(String name, entityName) {
-        if (name == 'aclEntry') {
-            return
-        }
-        println "Start event $name, $entityName"
         switch (name) {
             case 'project':
                 current = project
@@ -52,16 +60,12 @@ class ProjectBuilder implements EventListener {
         if (current) {
             current.addAttribute(name, value)
         } else {
-            println "Attribute $name, $value"
+            log.debug "Found attribute $name, $value"
         }
     }
 
     @Override
     def endEvent(String name, entityName) {
-        if (name == 'aclEntry') {
-            return
-        }
-        println "End event $name, $entityName"
         switch (name) {
             case ~/project|procedure|property|step|formalParameter|actualParameter/:
                 if (current.parent) {
@@ -74,6 +78,7 @@ class ProjectBuilder implements EventListener {
 
     @Override
     def done() {
+        attachParameters()
         squishDoubles()
         callback.call(this.project)
     }
@@ -94,6 +99,14 @@ class ProjectBuilder implements EventListener {
             }
         }
         project.procedures = procedures
+    }
+
+    def attachParameters() {
+        attachedCredentials.each { cred ->
+            Procedure procedure = project.procedures.find { it.name == cred.procedureName}
+            Step step = procedure.steps.find { it.name == cred.stepName }
+            step.attachParameter(cred.formalParameterName)
+        }
     }
 
     def squishProcedures(List<Procedure> doubles) {

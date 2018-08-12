@@ -19,6 +19,7 @@ class ProjectToXML {
 
     String generateXml() {
         new Node(parent, 'exportPath', '/projects/' + project.name)
+        new Node(projectNode, 'projectName', project.name)
         Node propertySheet = new Node(projectNode, 'propertySheet')
         generateProperties(propertySheet, project)
         generateProcedures(projectNode, project)
@@ -33,8 +34,8 @@ class ProjectToXML {
             }
             new Node(procNode, 'procedureName', procedure.name)
             new Node(procNode, 'description', procedure.description)
+            new Node(procNode, 'projectName', this.project.name)
             Node propertySheet = new Node(procNode, 'propertySheet')
-            println "Procedure ${procedure.name}"
             generateProperties(propertySheet, procedure)
             for (FormalParameter formalParameter in procedure.formalParameters) {
                 Node formal = new Node(procNode, 'formalParameter')
@@ -52,13 +53,18 @@ class ProjectToXML {
                 }
                 new Node(stepNode, 'stepName', step.name)
                 new Node(stepNode, 'description', step.description)
+                if (step.attachedParameters.size() > 0) {
+                    Node attachedParameters = new Node(stepNode, 'attachedParameters')
+                    step.attachedParameters.each { paramName ->
+                        new Node(attachedParameters, 'formalParameterName', paramName)
+                    }
+                }
             }
         }
     }
 
     def generateProperties(Node parentNode, EFEntity entity) {
         for (Property property in entity.listProperties()) {
-            println "Property ${property.name}"
             if (property.listProperties().size() == 0) {
                 Node propNode = new Node(parentNode, 'property')
                 new Node(propNode, 'propertyName', property.name)

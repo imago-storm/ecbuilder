@@ -6,6 +6,15 @@ class FormalParameter extends EFEntity {
         parent = procedure
     }
 
+    def addAttribute(String name, value) {
+        if (name == 'formalParameterName') {
+            this.name = value
+        }
+        else {
+            super.addAttribute(name, value)
+        }
+    }
+
     def addProperty(Property property) {
         throw new RuntimeException("Formal parameter cannot contain properties")
     }
