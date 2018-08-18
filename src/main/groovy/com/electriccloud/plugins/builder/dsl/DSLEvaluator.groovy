@@ -1,5 +1,6 @@
 package com.electriccloud.plugins.builder.dsl
 
+import com.electriccloud.plugins.builder.exceptions.UnsupportedDSLException
 import org.codehaus.groovy.control.CompilerConfiguration
 import com.electriccloud.plugins.builder.dsl.listeners.EventListener
 
@@ -12,6 +13,9 @@ class DSLEvaluator {
     static final String END = 'end'
     static final String ATTRIBUTE = 'attribute'
     static final String METHOD = 'method'
+
+    static
+    final String OLD_LOAD_PROCEDURES = "4-th parameter for the loadProcedures() function should be a list 'stepsWithAttachedCredentials'"
 
     File procedureFolder
 
@@ -141,12 +145,11 @@ class DSLEvaluator {
                             checkedValue = formElement.checkedValue ?: 'true'
                             uncheckedValue = formElement.uncheckedValue ?: 'false'
                             initiallyChecked = formElement.initiallyChecked ?: '0'
-                        }
-                        else if ('select' == formElement.type.toString() || 'radio' == formElement.type.toString()) {
+                        } else if ('select' == formElement.type.toString() || 'radio' == formElement.type.toString()) {
                             int count = 0
                             property 'options', {
                                 formElement.option.each { option ->
-                                    count ++
+                                    count++
                                     property "option${count}", {
                                         property 'text', value: "${option.name}"
                                         property 'value', value: "${option.value}"
@@ -174,7 +177,8 @@ class DSLEvaluator {
                                             'workingDirectory', 'workspaceName'],
                           property       : ['value', 'expandable', 'credentialProtected'],
                           project        : ['description', 'name'],
-                          formalParameter: ['property', 'defaultValue', 'type', 'label', 'required']]
+                          formalParameter: ['property', 'defaultValue', 'type',
+                                            'label', 'required', 'formalParameterName']]
         return properties[name]
     }
 
@@ -242,8 +246,7 @@ class DSLEvaluator {
                 property propName, {
                     loadNestedProperties(dir)
                 }
-            }
-            else {
+            } else {
                 property propName, value: dir.text
             }
         }
@@ -255,9 +258,16 @@ class DSLEvaluator {
             throw new RuntimeException("Folder dsl/procedures does not exist")
         }
         proceduresFolder.listFiles().each { File proc ->
-            loadProcedure(proc)
+            if (!proc.name.endsWith('_ignore')) {
+                loadProcedure(proc)
+            }
         }
-        sendEvent(METHOD, 'loadProcedures', [pluginKey: pluginKey, pluginName: pluginName, stepsWithAttachedCredentials: stepsWithAttachedCredentials])
+        if (stepsWithAttachedCredentials instanceof List) {
+            sendEvent(METHOD, 'loadProcedures', [pluginKey: pluginKey, pluginName: pluginName, stepsWithAttachedCredentials: stepsWithAttachedCredentials])
+        } else {
+//            In some plugins there is a category name, we do not support this case
+            throw new UnsupportedDSLException(OLD_LOAD_PROCEDURES)
+        }
     }
 
     def loadProcedure(File procedureFolder) {
@@ -277,6 +287,9 @@ class DSLEvaluator {
     }
 
     def upgrade(action, pluginName, otherPluginName, stepsWithAttachedCredentials) {
+        if (!stepsWithAttachedCredentials instanceof List) {
+            throw new UnsupportedDSLException(OLD_LOAD_PROCEDURES)
+        }
         sendEvent(METHOD, 'upgrade', stepsWithAttachedCredentials)
     }
 }

@@ -78,10 +78,8 @@ class ProjectBuilder implements EventListener {
 
     @Override
     def endEvent(String name, entityName) {
-        switch (name) {
-            case ~/project|procedure|property|step|formalParameter|actualParameter/:
-                current = current.parent
-                break
+        if (name =~ /project|procedure|property|step|formalParameter|actualParameter/) {
+            current = current.parent
         }
     }
 

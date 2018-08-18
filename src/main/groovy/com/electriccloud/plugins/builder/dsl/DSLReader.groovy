@@ -1,6 +1,7 @@
 package com.electriccloud.plugins.builder.dsl
 
 import com.electriccloud.plugins.builder.dsl.listeners.EventListener
+import com.electriccloud.plugins.builder.exceptions.PromoteDSLDoesNotExistException
 import org.codehaus.groovy.control.CompilerConfiguration
 
 class DSLReader {
@@ -15,8 +16,13 @@ class DSLReader {
         this.version = version
     }
 
+//    TODO demote
     List<EventListener> process(List<EventListener> listeners) {
-        String promoteDsl = new File(pluginFolder, "dsl/promote.groovy").text
+        File promoteFile = new File(pluginFolder, 'dsl/promote.groovy')
+        if (!promoteFile.exists()) {
+            throw new PromoteDSLDoesNotExistException()
+        }
+        String promoteDsl = promoteFile.text
         promoteDsl = promoteDsl
             .replaceAll('import com.electriccloud.commander.dsl.util.BasePlugin', '')
             .replaceAll('@BaseScript BasePlugin baseScript', '')

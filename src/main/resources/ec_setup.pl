@@ -28,5 +28,7 @@ for my $objectType (@objectTypes) {
 }
 
 
+
+
 #dsl/procedures/createConfiguration/steps/createAndAttachCredential.pl:my $stepsJSON = $ec->getPropertyValue("/projects/$projName/procedures/CreateConfiguration/ec_stepsWithAttachedCredentials");
 #

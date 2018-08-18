@@ -3,7 +3,7 @@ package com.electriccloud.plugins.builder
 import com.electriccloud.plugins.builder.domain.*
 import groovy.xml.XmlUtil
 
-class ProjectToXML {
+class ProjectXMLGenerator {
     Project project
     Node parent = new Node(null, 'exportedData', [
         buildLabel  : 'build_3.5_30434_OPT_2010.01.13_07:32:22',
@@ -13,7 +13,7 @@ class ProjectToXML {
     @Lazy
     Node projectNode = { new Node(parent, 'project') }()
 
-    ProjectToXML(Project project) {
+    ProjectXMLGenerator(Project project) {
         this.project = project
     }
 

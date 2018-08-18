@@ -1,5 +1,7 @@
 package com.electriccloud.plugins.builder.domain
 
+import com.electriccloud.plugins.builder.exceptions.InvalidHierarchyException
+
 class FormalParameter extends EFEntity {
     Procedure parent
     FormalParameter(procedure) {
@@ -16,6 +18,6 @@ class FormalParameter extends EFEntity {
     }
 
     def addProperty(Property property) {
-        throw new RuntimeException("Formal parameter cannot contain properties")
+        throw new InvalidHierarchyException("Formal parameter cannot contain properties: formalParameterName is ${this.name}, property name is ${property.name}")
     }
 }
