@@ -1,5 +1,7 @@
 package com.electriccloud.plugins.builder.domain
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException
+
 class EFEntity {
     String name
     String description
@@ -30,6 +32,14 @@ class EFEntity {
     def addChild(Property property) {
         addProperty(property)
     }
+
+    def findChild(Class className, String name) {
+        if (Property == className) {
+            return this.properties.find { it.name == name }
+        }
+        throw new NotImplementedException()
+    }
+
 
     def addChild(EFEntity child) {
         throw new RuntimeException("Cannot add ${child.class} to ${this.class}")

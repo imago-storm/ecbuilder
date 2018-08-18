@@ -14,4 +14,11 @@ class Project extends EFEntity {
     def addChild(Procedure procedure) {
         procedures.add(procedure)
     }
+
+    def findChild(Class className, String name) {
+        if (Procedure == className) {
+            return procedures.find { it.name == name }
+        }
+        super.findChild(className, name)
+    }
 }

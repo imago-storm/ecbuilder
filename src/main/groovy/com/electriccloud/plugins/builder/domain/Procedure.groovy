@@ -20,6 +20,16 @@ class Procedure extends EFEntity {
         steps.add(step)
     }
 
+    def findChild(Class className, String name) {
+        if (Step == className) {
+            return steps.find{ it.name == name }
+        }
+        if (FormalParameter == className) {
+            return formalParameters.find { it.name == name }
+        }
+        super.findChild(className, name)
+    }
+
     def addChild(FormalParameter parameter) {
         formalParameters.add(parameter)
     }

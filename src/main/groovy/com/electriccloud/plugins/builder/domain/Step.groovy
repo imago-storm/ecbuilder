@@ -19,6 +19,14 @@ class Step extends EFEntity {
         super.addAttribute(name, value)
     }
 
+    @Override
+    def findChild(Class entityClass, String name) {
+        if (ActualParameter == entityClass) {
+            return actualParameters.find { it.name == name }
+        }
+        return super.findChild(entityClass, name)
+    }
+
     def attachParameter(String formalParameterName) {
         attachedParameters << formalParameterName
     }

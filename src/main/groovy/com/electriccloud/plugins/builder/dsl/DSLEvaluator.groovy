@@ -97,10 +97,15 @@ class DSLEvaluator {
         }
         if (methodName == 'project') {
             property 'ec_setup', {
-                value = 'print "hello"'
+                value = readECSetup()
             }
         }
         sendEvent(END, methodName, entityName)
+    }
+
+    def readECSetup() {
+        File ecSetup = new File(pluginFolder, 'ec_setup.pl')
+        return ecSetup.text
     }
 
 
@@ -167,7 +172,7 @@ class DSLEvaluator {
                                             'projectName', 'releaseMode', 'resourceName', 'shell',
                                             'subprocedure', 'subproject', 'timeLimit', 'timeLimitUnits',
                                             'workingDirectory', 'workspaceName'],
-                          property       : ['value', 'expandable'],
+                          property       : ['value', 'expandable', 'credentialProtected'],
                           project        : ['description', 'name'],
                           formalParameter: ['property', 'defaultValue', 'type', 'label', 'required']]
         return properties[name]
@@ -201,7 +206,6 @@ class DSLEvaluator {
                     return 'unknown'
                 }
             }
-
         } else {
             return 'unknown'
         }
@@ -245,7 +249,7 @@ class DSLEvaluator {
         }
     }
 
-    def loadProcedures(pluginDir, pluginKey, pluginName, pluginCategory) {
+    def loadProcedures(pluginDir, pluginKey, pluginName, stepsWithAttachedCredentials) {
         File proceduresFolder = new File(pluginFolder, 'dsl/procedures')
         if (!proceduresFolder.exists()) {
             throw new RuntimeException("Folder dsl/procedures does not exist")
@@ -253,6 +257,7 @@ class DSLEvaluator {
         proceduresFolder.listFiles().each { File proc ->
             loadProcedure(proc)
         }
+        sendEvent(METHOD, 'loadProcedures', [pluginKey: pluginKey, pluginName: pluginName, stepsWithAttachedCredentials: stepsWithAttachedCredentials])
     }
 
     def loadProcedure(File procedureFolder) {
@@ -272,6 +277,6 @@ class DSLEvaluator {
     }
 
     def upgrade(action, pluginName, otherPluginName, stepsWithAttachedCredentials) {
-        print "Upgrade: $action"
+        sendEvent(METHOD, 'upgrade', stepsWithAttachedCredentials)
     }
 }

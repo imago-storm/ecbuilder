@@ -69,10 +69,16 @@ class ProjectToXML {
                 Node propNode = new Node(parentNode, 'property')
                 new Node(propNode, 'propertyName', property.name)
                 new Node(propNode, 'value', property.value)
+                property.attributes.each {k, v ->
+                    new Node(propNode, k, v)
+                }
             } else {
                 Node propNode = new Node(parentNode, 'property')
                 new Node(propNode, 'propertyName', property.name)
                 Node propertySheet = new Node(propNode, 'propertySheet')
+                property.attributes.each {k, v ->
+                    new Node(propNode, k, v )
+                }
                 generateProperties(propertySheet, property)
             }
         }

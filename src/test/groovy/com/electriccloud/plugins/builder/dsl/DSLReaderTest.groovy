@@ -11,7 +11,8 @@ import spock.lang.Specification
 class DSLReaderTest extends Specification {
     def "read plugin"() {
         when:
-        def pluginFolder = '/Users/imago/Documents/ecloud/plugins/EC-Nothing'
+//        def pluginFolder = '/Users/imago/Documents/ecloud/plugins/EC-Nothing'
+        def pluginFolder = '/Users/imago/Documents/ecloud/plugins/containers/EC-Kubernetes'
         DSLReader reader = new DSLReader(pluginFolder, "EC-Nothing", "1.4.0")
         EventListener xml = new ProjectBuilder({ Project project ->
             String xml = new ProjectToXML(project).generateXml()

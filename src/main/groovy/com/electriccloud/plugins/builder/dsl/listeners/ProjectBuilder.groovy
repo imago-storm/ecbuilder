@@ -1,6 +1,8 @@
 package com.electriccloud.plugins.builder.dsl.listeners
 
 import com.electriccloud.plugins.builder.domain.*
+import groovy.json.JsonBuilder
+import groovy.json.JsonOutput
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -15,13 +17,27 @@ class ProjectBuilder implements EventListener {
     }
 
     List attachedCredentials = []
+    List stepsWithAttachedCredentials = []
 
     def method(String methodName, properties) {
         if (methodName == 'attachParameter') {
             log.debug "Found attach parameter: ${properties}"
             attachedCredentials << properties[0]
         }
+        if (methodName == 'loadProcedures') {
+            stepsWithAttachedCredentials = properties.stepsWithAttachedCredentials
+        }
         log.debug "Found method $methodName"
+    }
+
+    def startEntity(String name, Class entityClass) {
+        EFEntity existing = current.findChild(entityClass, name)
+        if (!existing) {
+            existing = entityClass.newInstance(current)
+            existing.name = name
+            current.addChild(existing)
+        }
+        return existing
     }
 
     @Override
@@ -31,29 +47,25 @@ class ProjectBuilder implements EventListener {
                 current = project
                 break
             case 'procedure':
-                Procedure existingProcedure = this.project.procedures.find { it.name == entityName }
-                if (existingProcedure) {
-                    current = existingProcedure
-                } else {
-                    current = new Procedure(current)
-                }
+                current = startEntity(entityName, Procedure)
                 break
             case 'step':
-                current = new Step(current)
+                current = startEntity(entityName, Step)
                 break
             case 'property':
-                current = new Property(current)
+                current = startEntity(entityName, Property)
                 break
             case 'formalParameter':
-                current = new FormalParameter(current)
+                current = startEntity(entityName, FormalParameter)
                 break
             case 'actualParameter':
-                current = new ActualParameter(current)
+                current = startEntity(entityName, ActualParameter)
                 break
-                defaut:
-                println "Event $name"
+            defaut:
+                log.debug("Event: $name")
         }
     }
+
 
     @Override
     def attribute(String name, Object value) {
@@ -68,9 +80,6 @@ class ProjectBuilder implements EventListener {
     def endEvent(String name, entityName) {
         switch (name) {
             case ~/project|procedure|property|step|formalParameter|actualParameter/:
-                if (current.parent) {
-                    current.parent.addChild(current)
-                }
                 current = current.parent
                 break
         }
@@ -79,48 +88,32 @@ class ProjectBuilder implements EventListener {
     @Override
     def done() {
         attachParameters()
-        squishDoubles()
+        encodeSteps()
         callback.call(this.project)
     }
 
-
-    def squishDoubles() {
-        List<Procedure> procedures = []
-        for (Procedure procedure in project.procedures) {
-            List<Procedure> doubles = project.procedures.findAll {
-                it.name == procedure.name
-            }
-            if (doubles.size() == 1) {
-                procedures.add(doubles[0])
-            } else {
-                Procedure squished = squishProcedures(doubles)
-                if (!procedures.find { it.name == squished.name })
-                    procedures.add(squished)
-            }
+    def encodeSteps() {
+        Procedure createConfiguration = this.project.procedures.find { it.name == 'CreateConfiguration' }
+        if (!createConfiguration) {
+            log.debug "No CreateConfiguration procedure found"
+            return
         }
-        project.procedures = procedures
+
+        String json = JsonOutput.toJson(stepsWithAttachedCredentials)
+        Property property = new Property(createConfiguration)
+        property.setValue(json)
+        property.setName('ec_stepsWithAttachedCredentials')
+        createConfiguration.addProperty(property)
     }
+
 
     def attachParameters() {
         attachedCredentials.each { cred ->
-            Procedure procedure = project.procedures.find { it.name == cred.procedureName}
+            Procedure procedure = project.procedures.find { it.name == cred.procedureName }
             Step step = procedure.steps.find { it.name == cred.stepName }
             step.attachParameter(cred.formalParameterName)
         }
     }
 
-    def squishProcedures(List<Procedure> doubles) {
-        Procedure result = new Procedure(this.project)
-        for (Procedure proc in doubles) {
-            result.name = proc.name
-            result.attributes += proc.attributes
-            for (Property prop in proc.listProperties()) {
-                if (!result.listProperties().find { it.name == prop.name})
-                    result.addProperty(prop)
-            }
-        }
-
-        return result
-    }
 
 }
