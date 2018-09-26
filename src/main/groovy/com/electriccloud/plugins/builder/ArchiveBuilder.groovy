@@ -31,6 +31,7 @@ class ArchiveBuilder {
             item.writeInto(zip)
             zip.closeEntry()
         }
+        zip.close()
     }
 
     def __pack(File destination) {

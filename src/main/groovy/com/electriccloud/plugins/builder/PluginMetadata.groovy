@@ -33,6 +33,10 @@ class PluginMetadata {
         return retval
     }
 
+    def getCategory() {
+        return node.category.text()
+    }
+
     def getVersion() {
         String basicVersion = node.version.text()
         def parts = basicVersion.split(/\./)

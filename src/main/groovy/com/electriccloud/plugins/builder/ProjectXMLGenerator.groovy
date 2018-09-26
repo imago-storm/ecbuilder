@@ -1,15 +1,18 @@
 package com.electriccloud.plugins.builder
 
 import com.electriccloud.plugins.builder.domain.*
+import groovy.util.logging.Slf4j
 import groovy.xml.XmlUtil
 
+@Slf4j
 class ProjectXMLGenerator {
     Project project
     Node parent = new Node(null, 'exportedData', [
-        buildLabel  : 'build_3.5_30434_OPT_2010.01.13_07:32:22',
-        buildVersion: '3.5.1.30434',
-        version     : '39']
+        buildLabel  : 'build_main_129921_2018.07.05_07:40:23',
+        buildVersion: '8.4.0.129921',
+        version     : '86']
     )
+
     @Lazy
     Node projectNode = { new Node(parent, 'project') }()
 
@@ -70,14 +73,27 @@ class ProjectXMLGenerator {
                 new Node(propNode, 'propertyName', property.name)
                 new Node(propNode, 'value', property.value)
                 property.attributes.each {k, v ->
-                    new Node(propNode, k, v)
+                    if (k == 'credentialProtected') {
+                        v = k ? '1' : '0'
+                    }
+                    else {
+
+                        new Node(propNode, k, "$v")
+                    }
+                    log.info("Adding attribute to property $k, $v")
                 }
             } else {
                 Node propNode = new Node(parentNode, 'property')
                 new Node(propNode, 'propertyName', property.name)
                 Node propertySheet = new Node(propNode, 'propertySheet')
                 property.attributes.each {k, v ->
-                    new Node(propNode, k, v )
+                    if (k == 'credentialProtected') {
+                        v = k ? '1' : '0'
+                        new Node(propertySheet, k, "$v")
+                    }
+                    else {
+                        new Node(propNode, k, "$v")
+                    }
                 }
                 generateProperties(propertySheet, property)
             }

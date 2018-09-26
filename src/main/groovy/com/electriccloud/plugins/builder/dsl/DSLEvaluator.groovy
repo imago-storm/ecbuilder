@@ -111,7 +111,14 @@ class DSLEvaluator {
         File ecSetup = new File(pluginFolder, 'ec_setup.pl')
         return ecSetup.text
     }
-
+    def generateDescription(formElement) {
+        if (formElement.documentation) {
+            return formElement.documentation.toString()
+        }
+        else {
+            return formElement.htmlDocumentation.toString()
+        }
+    }
 
     def loadProcedureForm(File folder, String procedureName) {
 //        Somewhere between start and end procedure events
@@ -123,6 +130,7 @@ class DSLEvaluator {
                 defaultValue: "${formElement.value}",
                 required: "${formElement.required}",
                 type: "${formElement.type}",
+                description: generateDescription(formElement),
                 label: "${formElement.label}")
 
             if (formElement['attachedAsParameterToStep'] && formElement['attachedAsParameterToStep'] != '') {
@@ -178,7 +186,7 @@ class DSLEvaluator {
                           property       : ['value', 'expandable', 'credentialProtected'],
                           project        : ['description', 'name'],
                           formalParameter: ['property', 'defaultValue', 'type',
-                                            'label', 'required', 'formalParameterName']]
+                                            'label', 'required', 'formalParameterName', 'description']]
         return properties[name]
     }
 

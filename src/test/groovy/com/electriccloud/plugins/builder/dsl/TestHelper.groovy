@@ -7,9 +7,11 @@ class TestHelper {
         def plugins = []
         new File(pluginsTestFolder).eachFile {
             if (it.name.startsWith('EC-') && isPluginWizard(it)) {
+
                 plugins.add(it.absolutePath)
             }
         }
+        return ['/Users/imago/Documents/ecloud/plugins/containers/EC-Kubernetes']
         return plugins
     }
 
