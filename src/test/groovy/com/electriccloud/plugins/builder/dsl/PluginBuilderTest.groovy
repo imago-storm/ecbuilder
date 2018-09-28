@@ -3,88 +3,108 @@ package com.electriccloud.plugins.builder.dsl
 import com.electriccloud.client.groovy.ElectricFlow
 import com.electriccloud.plugins.builder.PluginBuilder
 import groovy.util.logging.Slf4j
+import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Stepwise
 import spock.lang.Unroll
 
 @Slf4j
+@Stepwise
 class PluginBuilderTest extends Specification {
 
+    @Shared
+    def pluginName = 'SamplePlugin'
+    @Shared
+    def destinationArchive
+    @Shared
+    def pluginKey
+    @Shared
+    def pluginVersion
+    @Shared
+    ElectricFlow ef
+    @Shared
+    TestHelper helper = new TestHelper()
+
+    def setupSpec() {
+        ef = new ElectricFlow()
+        ef.login(helper.commanderServer, 'admin', 'changeme')
+        helper.login()
+    }
+
     @Unroll
-    def 'building plugin #plugin'() {
+    def 'building sample plugin'() {
         given:
-        def pluginName = new File(plugin).name
+        File plugin = new File(this.class.getResource("/$pluginName").toURI())
+        destinationArchive = new File(plugin, "build/${pluginName}.zip")
         when:
-        PluginBuilder builder = new PluginBuilder(new File(plugin))
+        PluginBuilder builder = new PluginBuilder(plugin)
         builder.build()
+        pluginKey = builder.pluginKey
+        pluginVersion = builder.version
         then:
-        File destinationArchive = new File(plugin, "build/${pluginName}.zip")
-        assert destinationArchive.exists() : "Plugin archive ${pluginName} does not exist"
-        installPlugin(destinationArchive, builder.pluginKey, builder.version)
-        validatePlugin("${builder.pluginKey}-${builder.version}")
-        where:
-        plugin << TestHelper.getPlugins()
+        assert destinationArchive.exists(): "Plugin archive ${pluginName} does not exist"
     }
 
-    def installPlugin(File archive, pluginKey, pluginVersion) {
-        String username = System.getenv('COMMANDER_USERNAME') ?: 'admin'
-        String password = System.getenv('COMMANDER_PASSWORD') ?: 'changeme'
-        runCommand("ectool --server $commanderServer login  $username $password")
-        runCommand("ectool --server $commanderServer installPlugin ${archive.absolutePath}")
-//        runCommand("ectool --server $commanderServer promotePlugin  ${pluginKey}-${pluginVersion} ")
+    def 'installing plugin'() {
+        when: 'installation runs'
+
+        helper.installPlugin(destinationArchive)
+        then: 'the plugin project should be on server'
+        def plugin = ef.getProject(projectName: "$pluginKey-$pluginVersion")?.project
+        assert plugin
     }
 
-
-    def runCommand(command) {
-        def stdout = new StringBuilder()
-        def stderr = new StringBuilder()
-        def process = command.execute()
-        process.consumeProcessOutput(stdout, stderr)
-        process.waitForOrKill(20 * 1000)
-        println "STDOUT: $stdout"
-        println "STDERR: $stderr"
-        println "Exit Code: ${process.exitValue()}"
-        def text = "$stdout\n$stderr"
-        assert process.exitValue() == 0
-        text
+    def 'promoting plugin'() {
+        when: 'promotion runs'
+        helper.promotePlugin("$pluginKey-$pluginVersion")
+        then:
+        def plugin = ef.getPlugin(pluginName: pluginKey)?.plugin
+        assert plugin.promoted
+        validatePlugin("$pluginKey-$pluginVersion")
     }
+
+//    TODO check picker steps
+//    TODO check dependencies load
+//    TODO check configuration
+
 
 
     def validatePlugin(pluginName) {
-        ElectricFlow ef = new ElectricFlow()
-        ef.login(commanderServer, 'admin', 'changeme')
         def procedures = ef.getProcedures(projectName: "/projects/$pluginName")?.procedure
-        def found = false
-        for (def procedure : procedures) {
-            assert procedure.procedureName
-            assert procedure.description
-            found = true
-            def properties = ef.getProperties(projectName: pluginName, procedureName: procedure.procedureName,  expand: false)?.propertySheet?.property
-            println properties
-            assert properties.any { it.propertyName == 'ec_customEditorData' }
-            assert properties.any { it.propertyName == 'ec_parameterForm' }
+        def sampleProcedure = procedures.find { it.procedureName == 'Sample Procedure' }
 
-            def formalParameters = ef.getFormalParameters(projectName:  pluginName, procedureName: procedure.procedureName)?.formalParameter
-            for (def param : formalParameters) {
-                println "Formal parameter ${param.formalParameterName}"
-                assert param.formalParameterName
-                assert param.description
-                assert param.type
-            }
-            def steps = ef.getSteps(projectName: pluginName, procedureName: procedure.procedureName)?.step
-            for(def step : steps) {
-                println "Step ${step.stepName}"
-                assert step.command || step.subprocedure
-            }
-        }
-        assert found : "no procedures were found in $pluginName"
+        assert sampleProcedure: 'sample procedure is not found'
+        assert !(procedures.find { it.procedureName == 'groovyProcedureTemplate' }): 'found ignored procedure'
+
+        def procedureName = sampleProcedure.procedureName
+
+        assert sampleProcedure.description
+        def steps = ef.getSteps(projectName: pluginName, procedureName: procedureName)?.step
+        assert steps
+        assert steps.size() == 1
+        assert steps[0].command
+        assert steps[0].shell
+
+        String ecSetup = ef.getProperty(projectName: pluginName, propertyName: 'ec_setup')
+        println ecSetup
+        assert ecSetup =~ /Auto-generated part begins/
+        assert ecSetup =~ /Some additional logic/
+
+        def parameters = ef.getFormalParameters(projectName: pluginName, procedureName: procedureName)?.formalParameter
+        assert parameters.find { it.formalParameterName == 'config' }
+        assert parameters.find { it.formalParameterName == 'param1' }
+
+        def parameterForm = ef.getProperty(projectName: pluginName, procedureName: procedureName, propertyName: 'ec_parameterForm')?.property
+        assert parameterForm.value
+
+        def customEditorData = ef.getProperties(
+            projectName: pluginName,
+            procedureName: procedureName,
+            path: 'ec_customEditorData'
+        )?.propertySheet
+        assert customEditorData
+
         return true
-    }
-
-    def getCommanderServer() {
-        String commanderServer = System.getenv('COMMANDER_SERVER')
-        assert commanderServer : "COMMANDER_SERVER environment variable is not provided"
-        return commanderServer
     }
 
 

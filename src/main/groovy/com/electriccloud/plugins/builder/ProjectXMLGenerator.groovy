@@ -80,7 +80,6 @@ class ProjectXMLGenerator {
 
                         new Node(propNode, k, "$v")
                     }
-                    log.info("Adding attribute to property $k, $v")
                 }
             } else {
                 Node propNode = new Node(parentNode, 'property')

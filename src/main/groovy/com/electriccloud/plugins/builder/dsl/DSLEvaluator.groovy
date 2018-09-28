@@ -99,11 +99,7 @@ class DSLEvaluator {
                 sendEvent(END, 'property', k)
             }
         }
-        if (methodName == 'project') {
-            property 'ec_setup', {
-                value = readECSetup()
-            }
-        }
+
         sendEvent(END, methodName, entityName)
     }
 

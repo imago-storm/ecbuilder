@@ -8,6 +8,7 @@ import com.electriccloud.plugins.builder.dsl.listeners.ProjectBuilder
 import java.nio.charset.Charset
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import static groovy.io.FileType.FILES
 
 class ArchiveBuilder {
 
@@ -21,6 +22,15 @@ class ArchiveBuilder {
     def addItem(String itemName, File item) {
         Item it = Item.newInstance(this, itemName, null, item)
         items.add(it)
+    }
+
+    def addFolder(String itemName, File folder) {
+        File rootFolder = folder.parentFile
+        folder.eachFileRecurse(FILES) { File file ->
+            def relative = rootFolder.toURI().relativize(file.toURI())
+            Item it = Item.newInstance(this, relative, null, file)
+            items.add(it)
+        }
     }
 
     def pack(File destination) {
@@ -85,7 +95,7 @@ class ArchiveBuilder {
                 out.write(bytes, 0, bytes.length)
                 return
             }
-            throw new RuntimeException("Empty item: neither contnet nor file is provided")
+            throw new RuntimeException("Empty item: neither content nor file is provided")
         }
 
     }

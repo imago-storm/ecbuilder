@@ -1,3 +1,7 @@
+#Auto-generated part begins
+######################################
+#Do not touch anything below this line
+
 use strict;
 use warnings;
 use ElectricCommander;
@@ -7,6 +11,7 @@ use subs qw(debug);
 my $category = $commander->getProperty('ec_pluginCategory')->findvalue('//value') || 'Utilities';
 my $stepsWithCredentials = getStepsWithCredentials();
 
+#TODO demote logic
 
 my @logs = ();
 sub debug($) {
@@ -30,9 +35,8 @@ if ($upgradeAction eq 'upgrade') {
 #    TODO
 }
 
-#TODO write to property
-warn "logs";
-warn join("\n", @logs);
+my $nowString = localtime;
+$commander->setProperty("/plugins/$pluginName/project/logs/$nowString", {value => join("\n", @logs)});
 
 
 sub migrateConfigurations {
@@ -167,3 +171,7 @@ for my $objectType (@objectTypes) {
     });
 }
 
+
+
+# Auto-generated part ends
+####################################

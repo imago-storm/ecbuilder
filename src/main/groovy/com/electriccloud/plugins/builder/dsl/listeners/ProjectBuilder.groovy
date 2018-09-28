@@ -21,13 +21,11 @@ class ProjectBuilder implements EventListener {
 
     def method(String methodName, properties) {
         if (methodName == 'attachParameter') {
-            log.debug "Found attach parameter: ${properties}"
             attachedCredentials << properties[0]
         }
         if (methodName == 'loadProcedures') {
             stepsWithAttachedCredentials = properties.stepsWithAttachedCredentials
         }
-        log.debug "Found method $methodName"
     }
 
     def startEntity(String name, Class entityClass) {

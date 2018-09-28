@@ -9,28 +9,30 @@ import groovy.util.logging.Slf4j
 
 @Slf4j
 class PluginBuilder {
-    File pluginFolder
-    String buildNumber
     static final String METAFILE_PATH = 'META-INF/plugin.xml'
     static final String PROJECT_XML_PATH = 'META-INF/project.xml'
+    static final String BUILD_FOLDER = "build"
+
+    File pluginFolder
+    String buildNumber
     String version
     String pluginKey
+    boolean dependenciesIntoProperties
+
+    @Lazy(soft = true)
+    List<File> folders = {
+        return pluginFolder.listFiles().findAll{
+            it.isDirectory() && !(it.name in ['META-INF', 'dsl', 'build', 'specs'])
+        }
+    }()
 
     PluginBuilder(File pluginFolder) {
         this.pluginFolder = pluginFolder
     }
 
-    def build() {
-        File metadataFile = new File(pluginFolder, METAFILE_PATH)
-        PluginMetadata metadata = new PluginMetadata(metadataFile)
-        String pluginKey = metadata.key
-        String version = metadata.version
-        File output = new File(pluginFolder, "build/${pluginKey}.zip")
-
-//        project xml
+    String generateProjectXml(metadata) {
+        // project xml
         DSLReader reader = new DSLReader(pluginFolder, metadata.key, metadata.version)
-        this.version = version
-        this.pluginKey = pluginKey
         String projectXml
         String category = metadata.category
         def callback = { Project project ->
@@ -42,30 +44,64 @@ class PluginBuilder {
 
 //            ec_setup
             String ecSetup = generateECSetup(metadata)
-            project.properties.find { it.name == 'ec_setup' }.value = ecSetup;
+            Property ecSetupProperty = new Property(project)
+            ecSetupProperty.addAttribute('propertyName', 'ec_setup')
+            ecSetupProperty.addAttribute('value', ecSetup)
+            project.addProperty(ecSetupProperty)
 
+            if (this.dependenciesIntoProperties) {
+                project = packDependenciesIntoProperties(project)
+            }
             projectXml = new ProjectXMLGenerator(project).generateXml()
         }
         EventListener projectBuilder = new ProjectBuilder(callback)
         reader.process([projectBuilder])
         assert projectXml: "Project xml is empty"
+        return projectXml
+    }
 
+
+    def readPluginMetadata() {
+        File metadataFile = new File(pluginFolder, METAFILE_PATH)
+        assert metadataFile.exists() : "no metadata file is found at ${metadataFile.absolutePath}"
+        PluginMetadata metadata = new PluginMetadata(metadataFile)
+        return metadata
+    }
+
+    def build() {
+        PluginMetadata metadata = readPluginMetadata()
+        this.version = metadata.version
+        this.pluginKey = metadata.key
+        log.info("Plugin Key: $pluginKey")
+        log.info("Plugin Version: $version")
+
+        File buildFolder = new File(pluginFolder, BUILD_FOLDER)
+        if (buildFolder.exists()) {
+            buildFolder.delete()
+            log.info("Cleaned build folder $buildFolder")
+        }
+        buildFolder.mkdir()
+        File output = new File(pluginFolder, BUILD_FOLDER + "/${pluginKey}.zip")
+
+        String projectXml = generateProjectXml(metadata)
         projectXml = insertPlaceholders(projectXml, metadata)
-        new File('/tmp/project.xml').write(projectXml)
 
         ArchiveBuilder builder = new ArchiveBuilder()
         builder.addItem(PROJECT_XML_PATH, projectXml)
 
 //        plugin.xml
+        File metadataFile = new File(pluginFolder, METAFILE_PATH)
         String pluginXml = metadataFile.text
         pluginXml = pluginXml.replaceAll(/<version>.+?<\/version>/, "<version>${metadata.version}</version>")
         builder.addItem(METAFILE_PATH, pluginXml)
 
-//        TODO other files
-//        TODO binaries
+        folders.each { File folder ->
+            builder.addFolder(folder.name, folder)
+        }
 
         builder.pack(output)
         log.info "Archive ${output.absolutePath} has been created"
+        return output
     }
 
     def insertPlaceholders(projectXml, metadata) {
@@ -78,11 +114,17 @@ class PluginBuilder {
     }
 
     def generateECSetup(metadata) {
-//        TODO concat
         String ecSetupCommon = new File(getClass().getResource("/ec_setup.pl").toURI()).text
         ecSetupCommon = insertPlaceholders(ecSetupCommon, metadata)
+        def append = new File(pluginFolder, 'ec_setup_append.pl')
+        if (append.exists()) {
+            ecSetupCommon += "\n" + append.text
+        }
         return ecSetupCommon
     }
 
+    def packDependenciesIntoProperties(Project project) {
+        return project
+    }
 
 }
