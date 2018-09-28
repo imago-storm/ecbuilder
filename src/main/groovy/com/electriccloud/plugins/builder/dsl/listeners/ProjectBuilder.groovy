@@ -1,7 +1,6 @@
 package com.electriccloud.plugins.builder.dsl.listeners
 
 import com.electriccloud.plugins.builder.domain.*
-import groovy.json.JsonBuilder
 import groovy.json.JsonOutput
 import groovy.util.logging.Slf4j
 
@@ -18,6 +17,8 @@ class ProjectBuilder implements EventListener {
 
     List attachedCredentials = []
     List stepsWithAttachedCredentials = []
+    List cloneProperties = []
+    String configPropertySheet = 'ec_plugin_cfgs'
 
     def method(String methodName, properties) {
         if (methodName == 'attachParameter') {
@@ -25,6 +26,11 @@ class ProjectBuilder implements EventListener {
         }
         if (methodName == 'loadProcedures') {
             stepsWithAttachedCredentials = properties.stepsWithAttachedCredentials
+        }
+        if (methodName == 'upgrade') {
+            stepsWithAttachedCredentials = properties.stepsWithAttachedCredentials
+            cloneProperties = properties.cloneProperties
+            configPropertySheet = properties.configPropertySheet
         }
     }
 
@@ -85,6 +91,18 @@ class ProjectBuilder implements EventListener {
     def done() {
         attachParameters()
         encodeSteps()
+        if (cloneProperties) {
+            def json = JsonOutput.toJson(cloneProperties)
+            Property clonedProperties = new Property(this.project)
+            clonedProperties.addAttribute('propertyName', 'ec_clonedProperties')
+            clonedProperties.addAttribute('value', json)
+            project.addProperty(clonedProperties)
+
+            Property configPropertySheet = new Property(project)
+            configPropertySheet.addAttribute('propertyName', 'ec_configPropertySheet')
+            configPropertySheet.addAttribute('value', this.configPropertySheet)
+            project.addProperty(configPropertySheet)
+        }
         callback.call(this.project)
     }
 

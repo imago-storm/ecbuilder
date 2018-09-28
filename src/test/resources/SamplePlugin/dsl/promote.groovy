@@ -40,7 +40,6 @@ project pluginName, {
 			}
 		}
 	}
-
 }
 
 // Copy existing plugin configurations from the previous

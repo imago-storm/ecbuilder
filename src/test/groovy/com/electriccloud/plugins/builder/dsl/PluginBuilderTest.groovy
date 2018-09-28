@@ -3,6 +3,7 @@ package com.electriccloud.plugins.builder.dsl
 import com.electriccloud.client.groovy.ElectricFlow
 import com.electriccloud.plugins.builder.PluginBuilder
 import groovy.util.logging.Slf4j
+import spock.lang.Requires
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Stepwise
@@ -10,6 +11,7 @@ import spock.lang.Unroll
 
 @Slf4j
 @Stepwise
+@Requires({TestHelper.environmentVariables()})
 class PluginBuilderTest extends Specification {
 
     @Shared
@@ -65,8 +67,6 @@ class PluginBuilderTest extends Specification {
 
 //    TODO check picker steps
 //    TODO check dependencies load
-//    TODO check configuration
-
 
 
     def validatePlugin(pluginName) {

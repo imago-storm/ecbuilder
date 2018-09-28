@@ -3,14 +3,14 @@
 #Do not touch anything below this line
 
 use strict;
-use warnings;
 use ElectricCommander;
 use JSON qw(decode_json);
 use subs qw(debug);
 
-my $category = $commander->getProperty('ec_pluginCategory')->findvalue('//value') || 'Utilities';
+my $pluginKey = '@PLUGIN_KEY@';
+my $category = eval { $commander->getProperty("/plugins/$pluginKey/project/ec_pluginCategory")->findvalue('//value')->string_value } || 'Utilities';
 my $stepsWithCredentials = getStepsWithCredentials();
-
+debug "Category: $category";
 #TODO demote logic
 
 my @logs = ();
@@ -29,10 +29,12 @@ for my $procedure ($commander->getProcedures({ projectName => '@PLUGIN_NAME@' })
     }
 }
 
+print "Upgrade Action: $upgradeAction\n";
+cleanAllStepPickers();
+
 if ($upgradeAction eq 'upgrade') {
     migrateConfigurations();
-    #    migrateProperties();
-#    TODO
+    migrateProperties();
 }
 
 my $nowString = localtime;
@@ -40,8 +42,9 @@ $commander->setProperty("/plugins/$pluginName/project/logs/$nowString", {value =
 
 
 sub migrateConfigurations {
-#    TODO take from somewhere
-    my $configName = 'ec_plugin_cfgs';
+    my $configName = eval {
+        $commander->getProperty("/plugins/$pluginKey/project/ec_configPropertySheet")->findvalue('//value')->string_value
+    } || 'ec_plugin_cfgs';
 
     $commander->clone({
         path => "/plugins/$otherPluginName/project/$configName",
@@ -89,7 +92,25 @@ sub migrateConfigurations {
             debug "Attached credential to $step->{stepName}";
         }
     }
+}
 
+
+sub migrateProperties {
+    my $clonedPropertySheets = eval {
+        decode_json($commander->getProperty("/plugins/$pluginKey/project/ec_clonedProperties")->findvalue('//value')->string_value);
+    };
+    unless ($clonedPropertySheets) {
+        debug "No properties to migrate";
+        return;
+    }
+
+    for my $prop (@$clonedPropertySheets) {
+        $commander->clone({
+            path => "/plugins/$otherPluginName/project/$prop",
+            cloneName => "/plugins/$pluginName/project/$prop"
+        });
+        debug "Cloned $prop"
+    }
 }
 
 
@@ -97,11 +118,12 @@ sub getStepsWithCredentials {
     my $retval = [];
     eval {
         my $pluginName = '@PLUGIN_NAME@';
-        my $stepsJson = $commander->getProperty("/projects/$pluginName/procedures/CreateConfiguration/ec_stepsWithAttachedCredentials");
+        my $stepsJson = $commander->getProperty("/projects/$pluginName/procedures/CreateConfiguration/ec_stepsWithAttachedCredentials")->findvalue('//value')->string_value;
         $retval = decode_json($stepsJson);
     };
     return $retval;
 }
+
 
 
 #-#    commander => $commander,
@@ -120,7 +142,6 @@ sub addStepPicker {
     $pickerDescription ||= $procedureName;
 
     my $label = '@PLUGIN_KEY@ - ' . $procedureName;
-    $batch->deleteProperty("/server/ec_customEditors/pickerStep/$label");
     push @::createStepPickerSteps, {
         label       => $label,
         procedure   => $procedureName,
@@ -130,6 +151,16 @@ sub addStepPicker {
     debug "Added step picker $label";
 }
 
+sub cleanAllStepPickers {
+    my $xpath = $commander->getProperties({path => '/server/ec_customEditors/pickerStep'});
+    for my $step ($xpath->findnodes('//property')) {
+        my $name = $step->finvalue('propertyName')->string_value;
+        if ($name =~ m/^$pluginKey\s-\s/) {
+            debug("Deleting step picker $name");
+            $batch->deleteProperty("/server/ec_customEditors/pickerStep/$name");
+        }
+    }
+}
 
 sub descriptionForStepPicker {
     my ($procedureName) = @_;

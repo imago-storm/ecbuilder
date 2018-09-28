@@ -1,5 +1,6 @@
 package com.electriccloud.plugins.builder.dsl
 
+import com.electriccloud.plugins.builder.exceptions.RequiredFileDoesNotExist
 import com.electriccloud.plugins.builder.exceptions.UnsupportedDSLException
 import org.codehaus.groovy.control.CompilerConfiguration
 import com.electriccloud.plugins.builder.dsl.listeners.EventListener
@@ -107,11 +108,11 @@ class DSLEvaluator {
         File ecSetup = new File(pluginFolder, 'ec_setup.pl')
         return ecSetup.text
     }
+
     def generateDescription(formElement) {
         if (formElement.documentation) {
             return formElement.documentation.toString()
-        }
-        else {
+        } else {
             return formElement.htmlDocumentation.toString()
         }
     }
@@ -123,18 +124,18 @@ class DSLEvaluator {
 
         formElements.formElement.each { formElement ->
             formalParameter("${formElement.property}",
-                defaultValue: "${formElement.value}",
-                required: "${formElement.required}",
-                type: "${formElement.type}",
-                description: generateDescription(formElement),
-                label: "${formElement.label}")
+                            defaultValue: "${formElement.value}",
+                            required: "${formElement.required}",
+                            type: "${formElement.type}",
+                            description: generateDescription(formElement),
+                            label: "${formElement.label}")
 
             if (formElement['attachedAsParameterToStep'] && formElement['attachedAsParameterToStep'] != '') {
                 formElement['attachedAsParameterToStep'].toString().split(/\s*,\s*/).each {
                     attachParameter projectName: pluginName,
-                        procedureName: procedureName,
-                        stepName: it,
-                        formalParameterName: "${formElement.property}"
+                                    procedureName: procedureName,
+                                    stepName: it,
+                                    formalParameterName: "${formElement.property}"
                 }
             }
 
@@ -267,7 +268,10 @@ class DSLEvaluator {
             }
         }
         if (stepsWithAttachedCredentials instanceof List) {
-            sendEvent(METHOD, 'loadProcedures', [pluginKey: pluginKey, pluginName: pluginName, stepsWithAttachedCredentials: stepsWithAttachedCredentials])
+            sendEvent(
+                METHOD,
+                'loadProcedures',
+                [pluginKey: pluginKey, pluginName: pluginName, stepsWithAttachedCredentials: stepsWithAttachedCredentials])
         } else {
 //            In some plugins there is a category name, we do not support this case
             throw new UnsupportedDSLException(OLD_LOAD_PROCEDURES)
@@ -276,6 +280,9 @@ class DSLEvaluator {
 
     def loadProcedure(File procedureFolder) {
         File procedureDsl = new File(procedureFolder, 'procedure.dsl')
+        if (!procedureDsl.exists()) {
+            throw new RequiredFileDoesNotExist("procedure.dsl does not exist in the folder $procedureFolder")
+        }
         this.procedureFolder = procedureFolder
         CompilerConfiguration cc = new CompilerConfiguration()
         cc.setScriptBaseClass(DelegatingScript.class.getName())
@@ -290,10 +297,22 @@ class DSLEvaluator {
         script.run()
     }
 
+
+//    Multiple implementations of upgrade method
     def upgrade(action, pluginName, otherPluginName, stepsWithAttachedCredentials) {
         if (!stepsWithAttachedCredentials instanceof List) {
             throw new UnsupportedDSLException(OLD_LOAD_PROCEDURES)
         }
-        sendEvent(METHOD, 'upgrade', stepsWithAttachedCredentials)
+        sendEvent(METHOD, 'upgrade', [stepsWithAttachedCredentials: stepsWithAttachedCredentials])
+    }
+
+    def upgrade(action, pluginName, otherPluginName, stepsWithAttachedCredentials, configPropertySheet, cloneProperties) {
+        if (!stepsWithAttachedCredentials instanceof List) {
+            throw new UnsupportedDSLException(OLD_LOAD_PROCEDURES)
+        }
+        sendEvent(
+            METHOD,
+            'upgrade',
+            [stepsWithAttachedCredentials: stepsWithAttachedCredentials, cloneProperties: cloneProperties, configPropertySheet: configPropertySheet])
     }
 }

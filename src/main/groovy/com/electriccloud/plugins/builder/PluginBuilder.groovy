@@ -12,6 +12,8 @@ class PluginBuilder {
     static final String METAFILE_PATH = 'META-INF/plugin.xml'
     static final String PROJECT_XML_PATH = 'META-INF/project.xml'
     static final String BUILD_FOLDER = "build"
+    static final String EC_SETUP = 'ec_setup.pl'
+    static final String EC_SETUP_APPEND = 'ec_setup_append.pl'
 
     File pluginFolder
     String buildNumber
@@ -21,7 +23,7 @@ class PluginBuilder {
 
     @Lazy(soft = true)
     List<File> folders = {
-        return pluginFolder.listFiles().findAll{
+        return pluginFolder.listFiles().findAll {
             it.isDirectory() && !(it.name in ['META-INF', 'dsl', 'build', 'specs'])
         }
     }()
@@ -63,14 +65,16 @@ class PluginBuilder {
 
     def readPluginMetadata() {
         File metadataFile = new File(pluginFolder, METAFILE_PATH)
-        assert metadataFile.exists() : "no metadata file is found at ${metadataFile.absolutePath}"
+        assert metadataFile.exists(): "no metadata file is found at ${metadataFile.absolutePath}"
         PluginMetadata metadata = new PluginMetadata(metadataFile)
         return metadata
     }
 
     def build() {
         PluginMetadata metadata = readPluginMetadata()
-        this.version = metadata.version
+        if (!this.version) {
+            this.version = metadata.version
+        }
         this.pluginKey = metadata.key
         log.info("Plugin Key: $pluginKey")
         log.info("Plugin Version: $version")
@@ -92,7 +96,7 @@ class PluginBuilder {
 //        plugin.xml
         File metadataFile = new File(pluginFolder, METAFILE_PATH)
         String pluginXml = metadataFile.text
-        pluginXml = pluginXml.replaceAll(/<version>.+?<\/version>/, "<version>${metadata.version}</version>")
+        pluginXml = pluginXml.replaceAll(/<version>.+?<\/version>/, "<version>${this.version}</version>")
         builder.addItem(METAFILE_PATH, pluginXml)
 
         folders.each { File folder ->
@@ -109,14 +113,14 @@ class PluginBuilder {
         String retval = projectXml
             .replaceAll(/@PLUGIN_NAME@/, pluginName)
             .replaceAll(/@PLUGIN_KEY@/, metadata.key)
-            .replaceAll(/@PLUGIN_VERSION@/, metadata.version)
+            .replaceAll(/@PLUGIN_VERSION@/, this.version)
         return retval
     }
 
     def generateECSetup(metadata) {
-        String ecSetupCommon = new File(getClass().getResource("/ec_setup.pl").toURI()).text
+        String ecSetupCommon = new File(getClass().getResource("/" + EC_SETUP).toURI()).text
         ecSetupCommon = insertPlaceholders(ecSetupCommon, metadata)
-        def append = new File(pluginFolder, 'ec_setup_append.pl')
+        def append = new File(pluginFolder, EC_SETUP_APPEND)
         if (append.exists()) {
             ecSetupCommon += "\n" + append.text
         }
